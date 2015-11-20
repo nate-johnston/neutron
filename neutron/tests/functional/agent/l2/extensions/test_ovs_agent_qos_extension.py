@@ -29,6 +29,8 @@ from neutron.tests.functional.agent.l2 import base
 
 TEST_POLICY_ID1 = "a2d72369-4246-4f19-bd3c-af51ec8d70cd"
 TEST_POLICY_ID2 = "46ebaec0-0570-43ac-82f6-60d2b03168c5"
+TEST_DSCP_TAG_1 = 1
+TEST_DSCP_TAG_2 = 2
 TEST_BW_LIMIT_RULE_1 = rule.QosBandwidthLimitRule(
         context=None,
         qos_policy_id=TEST_POLICY_ID1,
@@ -106,6 +108,18 @@ class OVSAgentQoSExtensionTestFramework(base.OVSAgentTestFramework):
     def wait_until_bandwidth_limit_rule_applied(self, port, rule):
         l2_extensions.wait_until_bandwidth_limit_rule_applied(
             self.agent.int_br, port['vif_name'], rule)
+
+    def _assert_dscp_marking_rule_is_set(self, qos_policy, dscp_tag):
+        current_dscp_tag = self.agent.int_br.get_dscp_marking_rule(qos_policy)
+        self.assertEqual(dscp_tag, current_dscp_tag)
+
+    def _assert_dscp_marking_rule_not_set(self, qos_policy, port):
+        current_dscp_tag = self.agent.int_br.get_dscp_marking_rule(qos_policy)
+        self.assertIsNone(current_dscp_tag)
+
+    def wait_until_dscp_marking_rule_applied(self, qos_policy, dscp_tag):
+        l2_extensions.wait_until_dscp_marking_rule_applied(
+            self.agent.int_br, qos_policy, dscp_tag)
 
     def _create_port_with_qos(self):
         port_dict = self._create_test_port_dict()
@@ -185,7 +199,11 @@ class TestOVSAgentQosExtension(OVSAgentQoSExtensionTestFramework):
         self.agent.port_update(None, port=port_dict)
 
         self.wait_until_bandwidth_limit_rule_applied(port_dict,
-                                                     TEST_BW_LIMIT_RULE_2)
+                                                     TEST_BW_LIMIT_RULE_1)
+        self.wait_until_dscp_marking_rule_applied(TEST_POLICY_ID1,
+                                                  TEST_DSCP_TAG_1)
+        self.wait_until_dscp_marking_rule_applied(TEST_POLICY_ID2,
+                                                  TEST_DSCP_TAG_2)
 
     def test_policy_rule_delete(self):
         port_dict = self._create_port_with_qos()

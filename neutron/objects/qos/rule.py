@@ -86,3 +86,14 @@ class QosBandwidthLimitRule(QosRule):
     }
 
     rule_type = qos_consts.RULE_TYPE_BANDWIDTH_LIMIT
+
+@obj_base.VersionedObjectRegistry.register
+class QosDscpMarkingRule(QosRule):
+
+    db_model = qos_db_model.QosDscpMarkingRule
+
+    fields = {
+        'dscp_tag': obj_fields.StringField(nullable=True),
+    }
+
+    rule_type = qos_consts.RULE_TYPE_DSCP_MARKING

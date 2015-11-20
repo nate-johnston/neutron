@@ -158,6 +158,27 @@ class QoSPlugin(qos.QoSPluginBase):
             return rule_object.QosBandwidthLimitRule.get_objects(context,
                                                                  **filters)
 
+    def create_policy_dscp_marking_rule(self, context, policy_id,
+                                        dscp_marking_rule):
+        pass
+
+    def update_policy_dscp_marking_rule(self, context, rule_id, policy_id,
+                                        dscp_marking_rule):
+        pass
+
+    def delete_policy_dscp_marking_rule(self, context, rule_id, policy_id):
+        pass
+
+    def get_policy_dscp_marking_rule(self, context, rule_id,
+                                     policy_id, fields=None):
+        pass
+
+    def get_policy_dscp_marking_rules(self, context, policy_id,
+                                      filters=None, fields=None,
+                                      sorts=None, limit=None,
+                                      marker=None, page_reverse=False):
+        pass
+
     # TODO(QoS): enforce rule types when accessing rule objects
     @db_base_plugin_common.filter_fields
     @db_base_plugin_common.convert_result_to_dict

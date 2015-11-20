@@ -48,3 +48,12 @@ class QosOVSAgentDriver(qos.QosAgentDriver):
     def delete_bandwidth_limit(self, port):
         port_name = port['vif_port'].port_name
         self.br_int.delete_egress_bw_limit_for_port(port_name)
+
+    def _create_dscp_marking_rule(self, qos_policy_id, dscp_tag):
+        self._update_dscp_marking_rule(qos_policy_id, dscp_tag)
+
+    def _update_dscp_marking_rule(self, qos_policy_id, dscp_tag):
+        self.br_int.create_dscp_marking_rule(qos_policy_id, dscp_tag)
+
+    def _delete_dscp_marking_rule(self, qos_policy_id):
+        self.br_int.delete_dscp_marking_rule(qos_policy_id)

@@ -230,6 +230,32 @@ class QoSPluginBase(service_base.ServicePluginBase):
         pass
 
     @abc.abstractmethod
+    def get_policy_dscp_marking_rule(self, context, rule_id,
+                                     policy_id, fields=None):
+        pass
+
+    @abc.abstractmethod
+    def get_policy_dscp_marking_rules(self, context, policy_id,
+                                      filters=None, fields=None,
+                                      sorts=None, limit=None,
+                                      marker=None, page_reverse=False):
+        pass
+
+    @abc.abstractmethod
+    def create_policy_dscp_marking_rule(self, context, policy_id,
+                                        dscp_marking_rule):
+        pass
+
+    @abc.abstractmethod
+    def update_policy_dscp_marking_rule(self, context, rule_id, policy_id,
+                                        dscp_marking_rule):
+        pass
+
+    @abc.abstractmethod
+    def delete_policy_dscp_marking_rule(self, context, rule_id, policy_id):
+        pass
+
+    @abc.abstractmethod
     def get_rule_types(self, context, filters=None, fields=None,
                        sorts=None, limit=None,
                        marker=None, page_reverse=False):
