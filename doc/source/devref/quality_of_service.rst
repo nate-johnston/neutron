@@ -2,37 +2,39 @@
 Quality of Service
 ==================
 
-Quality of Service advanced service is designed as a service plugin. The
+The Quality of Service (Qos) advanced service is designed as a service plugin. This
 service is decoupled from the rest of Neutron code on multiple levels (see
 below).
 
 QoS extends core resources (ports, networks) without using mixins inherited
 from plugins but through an ml2 extension driver.
 
-Details about the DB models, API extension, and use cases can be found here: `qos spec <http://specs.openstack.org/openstack/neutron-specs/specs/liberty/qos-api-extension.html>`_
-.
+Details about the DB models, API extension, and use cases can be found here: `qos and bw spec <http://specs.openstack.org/openstack/neutron-specs/specs/liberty/qos-api-extension.html>`_.  This spec provides implementation 
+details for QoS generally as well as for the egress bandwidth limiting rule type, the first 
+implemented QoS rule type.  Analogous details for a subsequent rule type, DSCP markings, 
+can be found here: `dscp spec <https://review.openstack.org/#/c/190285/40/specs/mitaka/ml2-qos-with-dscp.rst>`_.
 
-Service side design
+Service-side design
 ===================
 * neutron.extensions.qos:
-  base extension + API controller definition. Note that rules are subattributes
-  of policies and hence embedded into their URIs.
+  Implements the base extension and API controller definition. Note that a 
+  rule, since it is a subattribute of a policy, is embedded into policy URIs.
 
 * neutron.services.qos.qos_plugin:
-  QoSPlugin, service plugin that implements 'qos' extension, receiving and
+  Implements the QoS extension as a service plugin, receiving and
   handling API calls to create/modify policies and rules.
 
 * neutron.services.qos.notification_drivers.manager:
-  the manager that passes object notifications down to every enabled
+  Implements the manager that passes object notifications to every enabled
   notification driver.
 
 * neutron.services.qos.notification_drivers.qos_base:
-  the interface class for pluggable notification drivers that are used to
+  Contains the interface class for pluggable notification drivers that are used to
   update backends about new {create, update, delete} events on any rule or
   policy change.
 
 * neutron.services.qos.notification_drivers.message_queue:
-  MQ-based reference notification driver which updates agents via messaging
+  MQ-based reference notification driver, which updates agents via messaging
   bus, using `RPC callbacks <rpc_callbacks.html>`_.
 
 * neutron.core_extensions.base:
@@ -56,52 +58,52 @@ Service side design
 Supported QoS rule types
 ------------------------
 
-Any plugin or Ml2 mechanism driver can claim support for some QoS rule types by
-providing a plugin/driver class property called 'supported_qos_rule_types' that
-should return a list of strings that correspond to QoS rule types (for the list
-of all rule types, see: neutron.extensions.qos.VALID_RULE_TYPES).
+Any plugin or Ml2 mechanism driver can claim support for one or more QoS rule 
+types by providing a plugin/driver class property, called 
+'supported_qos_rule_types', that returns a list of strings each of which 
+corresponds to a QoS rule type. See neutron.services.qos.qos-consts.VALID_RULE_TYPES 
+for all rule types.  In the simplest case, this property can be represented 
+by a Python list defined on the class.
 
-In the most simple case, the property can be represented by a simple Python
-list defined on the class.
-
-For Ml2 plugin, the list of supported QoS rule types is defined as a common
+For the ML2 plugin, the list of supported QoS rule types is defined as a common
 subset of rules supported by all active mechanism drivers.
 
-Note: the list of supported rule types reported by core plugin is not enforced
-when accessing QoS rule resources. This is mostly because then we would not be
-able to create any rules while at least one ml2 driver in gate lacks support
-for QoS (at the moment of writing, linuxbridge is such a driver).
+Note: the list of available rule types reported by the core plugin is not enforced
+when accessing QoS rule resources. If this restriction were in place, then no 
+QoS rule could be created so long as any ML2 driver in gate lacked support
+for QoS. (At the time of this writing, the linux bridge driver is such a driver.)
 
 
 Database models
 ---------------
 
-QoS design defines the following two conceptual resources to apply QoS rules
-for a port or a network:
+The following two conceptual resources are used to apply a QoS rule to a port 
+or a network:
 
 * QoS policy
-* QoS rule (type specific)
+* QoS rule (type-specific)
 
-Each QoS policy contains zero or more QoS rules. A policy is then applied to a
-network or a port, making all rules of the policy applied to the corresponding
-Neutron resource.
+Each QoS policy contains zero or more QoS rules. When a policy is assigned to a
+network or a port, all rules of that policy are thereby applied to that
+neutron resource.
 
-When applied through a network association, policy rules could apply or not
-to neutron internal ports (like router, dhcp, load balancer, etc..). The QosRule
-base object provides a default should_apply_to_port method which could be
-overridden. In the future we may want to have a flag in QoSNetworkPolicyBinding
-or QosRule to enforce such type of application (for example when limiting all
-the ingress of routers devices on an external network automatically).
+By default, a QoS policy that is assigned to a network will apply only to that 
+network's internal ports (for dhcp, load balancing, etc.).  In the future, we
+may wish to override this restriction (in order, for example, to limit ingress 
+traffic from routers on an external network.  (For details, see 
+neutron.objects.qos.rule.QosRule).
 
-From database point of view, following objects are defined in schema:
+The following database objects are defined in schema:
 
 * QosPolicy: directly maps to the conceptual policy resource.
-* QosNetworkPolicyBinding, QosPortPolicyBinding: defines attachment between a
+* QosNetworkPolicyBinding, QosPortPolicyBinding: defines an attachment between a
   Neutron resource and a QoS policy.
-* QosBandwidthLimitRule: defines the only rule type available at the moment.
+* QosBandwidthLimitRule: defines the ingress bandwidth limit rule type, characterized
+  by a max kbps and a max burst kbps.
+* QosDscpMarkingRule: defines the the DSCP rule type, characterized by an even integer
+  between 0 and 63 (examples: 0, 8, 10, 12, 14, or 16).
 
-
-All database models are defined under:
+All database models are defined in:
 
 * neutron.db.qos.models
 
@@ -109,15 +111,14 @@ All database models are defined under:
 QoS versioned objects
 ---------------------
 
-There is a long history of passing database dictionaries directly into business
-logic of Neutron. This path is not the one we wanted to take for QoS effort, so
-we've also introduced a new objects middleware to encapsulate the database logic
-from the rest of the Neutron code that works with QoS resources. For this, we've
-adopted oslo.versionedobjects library and introduced a new NeutronObject class
-that is a base for all other objects that will belong to the middle layer.
-There is an expectation that Neutron will evolve into using objects for all
-resources it handles, though that part was obviously out of scope for the QoS
-effort.
+There is a long history of passing database dictionaries directly into neutron's
+business logic. Since this approach violates encapsulation principles, with QoS 
+we've introduced an objects middleware that isolates the database logic from the 
+rest of the neutron code that works with QoS resources. To do this, we've adopted 
+oslo.versionedobjects library and introduced a new NeutronObject class as a 
+base for all other objects that will belong to this middleware. There is an 
+expectation that neutron will eventually use middleware objects for all resources 
+it handles, though that project is out of scope for the QoS effort.
 
 Every NeutronObject supports the following operations:
 
@@ -125,30 +126,31 @@ Every NeutronObject supports the following operations:
   argument.
 * get_objects: returns all objects of the type, potentially with a filter
   applied.
-* create/update/delete: usual persistence operations.
+* create/update/delete: performs usual persistence operations.
 
-Base object class is defined in:
+The NeutronObject class is defined in:
 
 * neutron.objects.base
 
-For QoS, new neutron objects were implemented:
+For QoS, the following neutron objects have been implemented, each analogous
+to the database objects defined above:
 
-* QosPolicy: directly maps to the conceptual policy resource, as defined above.
-* QosBandwidthLimitRule: class that represents the only rule type supported by
-  initial QoS design.
-
+* QosPolicy
+* QosBandwidthLimitRule
+* QosDscpMarkingRule
+  
 Those are defined in:
 
 * neutron.objects.qos.policy
 * neutron.objects.qos.rule
 
-For QosPolicy neutron object, the following public methods were implemented:
+For the QosPolicy neutron object, the following public methods were implemented:
 
 * get_network_policy/get_port_policy: returns a policy object that is attached
   to the corresponding Neutron resource.
-* attach_network/attach_port: attach a policy to the corresponding Neutron
+* attach_network/attach_port: attach a policy to the corresponding neutron
   resource.
-* detach_network/detach_port: detach a policy from the corresponding Neutron
+* detach_network/detach_port: detach a policy from the corresponding neutron
   resource.
 
 In addition to the fields that belong to QoS policy database object itself,
@@ -163,12 +165,12 @@ with little or no modifications in the policy object itself. This is achieved
 by smart introspection of existing available rule object definitions and
 automatic definition of those fields on the policy class.
 
-Note that rules are loaded in a non lazy way, meaning they are all fetched from
+Note that rules are loaded in a non-lazy way, meaning they are all fetched from
 the database on policy fetch.
 
 For Qos<type>Rule objects, an extendable approach was taken to allow easy
 addition of objects for new rule types. To accomodate this, fields common to
-all types are put into a base class called QosRule that is then inherited into
+all types are put into a base class called QosRule that is then inherited by
 type-specific rule implementations that, ideally, only define additional fields
 and some other minor things.
 
@@ -191,14 +193,14 @@ discussed in `a separate page <rpc_callbacks.html>`_.
 
 One thing that should be mentioned here explicitly is that RPC callback
 endpoints communicate using real versioned objects (as defined by serialization
-for oslo.versionedobjects library), not vague json dictionaries. Meaning,
+for oslo.versionedobjects library), not vague json dictionaries. This means that
 oslo.versionedobjects are on the wire and not just used internally inside a
 component.
 
-One more thing to note is that though RPC interface relies on versioned
+Another thing to note is that though the RPC interface relies on versioned
 objects, it does not yet rely on versioning features the oslo.versionedobjects
-library provides. This is because Liberty is the first release where we start
-using the RPC interface, so we have no way to get different versions in a
+library provides. This is because Liberty is the first release in which we 
+use the RPC interface, so we have no way to get different versions in a
 cluster. That said, the versioning strategy for QoS is thought through and
 described in `the separate page <rpc_callbacks.html>`_.
 
@@ -271,7 +273,8 @@ interface:
 Open vSwitch
 ~~~~~~~~~~~~
 
-Open vSwitch implementation relies on the new ovs_lib OVSBridge functions:
+The Open vSwitch bandwidth limit implementation relies on the following 
+ovs_lib OVSBridge functions:
 
 * get_egress_bw_limit_for_port
 * create_egress_bw_limit_for_port
@@ -281,9 +284,19 @@ An egress bandwidth limit is effectively configured on the port by setting
 the port Interface parameters ingress_policing_rate and
 ingress_policing_burst.
 
-That approach is less flexible than linux-htb, Queues and OvS QoS profiles,
+This approach is less flexible than linux-htb, Queues and OvS QoS profiles,
 which we may explore in the future, but which will need to be used in
 combination with openflow rules.
+
+The Open vSwitch DSCP marking implementation relies on the following 
+ovs_lib OVSBridge functions:
+
+* get_dscp_marking_rule
+* create_dscp_marking_rule
+* delete_dscp_marking_rule
+
+The DSCP markings are in fact configused on the port by means of
+openflow rules.
 
 SR-IOV
 ~~~~~~
@@ -302,7 +315,6 @@ to 1 Mbps only. If the limit is set to something that does not divide to 1000
 kbps chunks, then the effective limit is rounded to the nearest integer Mbps
 value.
 
-
 Configuration
 =============
 
@@ -312,7 +324,7 @@ On server side:
 
 * enable qos service in service_plugins;
 * set the needed notification_drivers in [qos] section (message_queue is the default);
-* for ml2, add 'qos' to extension_drivers in [ml2] section.
+* for ML2, add 'qos' to extension_drivers in [ml2] section.
 
 On agent side (OVS):
 
@@ -339,18 +351,16 @@ There are two test classes that are utilized for that:
 * BaseDbObjectTestCase: class to validate the same operations with models in
   place and database layer unmocked.
 
-Every new object implemented on top of one of those classes is expected to
-either inherit existing test cases as is, or reimplement it, if it makes sense
-in terms of how those objects are implemented. Specific test classes can
-obviously extend the set of test cases as they see needed (f.e. you need to
-define new test cases for those additional methods that you may add to your
+Every subclass of one of those classes is expected to inherit or override
+parent test cases. Specific test subclasses can extend the set of test cases 
+as needed (e.g., you need to define new test cases for methods added to your 
 object implementations on top of base semantics common to all neutron objects).
 
 
 Functional tests
 ----------------
 
-Additions to ovs_lib to set bandwidth limits on ports are covered in:
+Additions to ovs_lib to set bandwidth limits and DSCP markings on ports are covered in:
 
 * neutron.tests.functional.agent.test_ovs_lib
 
@@ -358,6 +368,6 @@ Additions to ovs_lib to set bandwidth limits on ports are covered in:
 API tests
 ---------
 
-API tests for basic CRUD operations for ports, networks, policies, and rules were added in:
+API tests for basic CRUD operations for ports, networks, policies, and rules are in:
 
 * neutron.tests.api.test_qos
