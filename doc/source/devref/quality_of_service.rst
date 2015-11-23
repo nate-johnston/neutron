@@ -30,11 +30,11 @@ Service-side design
 
 * neutron.services.qos.notification_drivers.qos_base:
   Defines the interface class for pluggable notification drivers that are used to
-  update backends about create, update, or delete events on any rule or
+  notify backends about create, update, or delete events on any rule or
   policy.
 
 * neutron.services.qos.notification_drivers.message_queue:
-  Implements the MQ-based reference notification driver, which updates agents 
+  Implements the MQ-based reference notification driver, which notifies agents 
   via messaging bus, using `RPC callbacks <rpc_callbacks.html>`_.
 
 * neutron.core_extensions.base:
@@ -90,13 +90,13 @@ neutron resource.
 By default, a QoS policy that is assigned to a network will apply only to that 
 network's internal ports (for dhcp, load balancing, etc.).  In the future, we
 may wish to override this restriction (in order, for example, to limit ingress 
-traffic from routers on an external network).  (For details, see 
-neutron.objects.qos.rule.QosRule).
+traffic from routers on an external network).  For details, see 
+neutron.objects.qos.rule.QosRule.
 
 The following database objects are defined in schema:
 
 * QosPolicy: directly maps to the conceptual policy resource.
-* QosNetworkPolicyBinding, QosPortPolicyBinding: define an attachment between a
+* QosNetworkPolicyBinding and QosPortPolicyBinding: define an attachment between a
   neutron resource and a QoS policy.
 * QosBandwidthLimitRule: defines the ingress bandwidth limit rule type, characterized
   by a max kbps and a max burst kbps.
@@ -178,7 +178,7 @@ Note that the QosRule base class is not registered with oslo.versionedobjects
 registry, because it's not expected that 'generic' rules should be
 instantiated (and to suggest just that, the base rule class is marked as ABC).
 
-QoS objects rely on some primitive database API functions that are added in:
+QoS objects rely on some primitive database API functions that are located in:
 
 * neutron.db.api: those can be reused to fetch other models that do not have
   corresponding versioned objects yet, if needed.
@@ -189,7 +189,7 @@ QoS objects rely on some primitive database API functions that are added in:
 RPC communication
 -----------------
 Details on RPC communication implemented in reference backend driver are
-discussed in `a separate page <rpc_callbacks.html>`_.
+discussed in `RPC callbacks <rpc_callbacks.html>`_.
 
 One thing that should be mentioned here explicitly is that RPC callback
 endpoints communicate using real versioned objects (as defined by serialization
@@ -202,24 +202,24 @@ objects, it does not yet rely on versioning features the oslo.versionedobjects
 library provides. This is because Liberty is the first release in which we 
 use the RPC interface, so we have no way to get different versions in a
 cluster. That said, the versioning strategy for QoS is thought through and
-described in `the separate page <rpc_callbacks.html>`_.
+described in `RPC callbacks <rpc_callbacks.html>`_.
 
-There is expectation that after RPC callbacks are introduced in neutron, we
-will be able to migrate propagation from server to agents for other resources
-(e.g., security groups) to the new mechanism. This will need to wait until those
-resources get proper NeutronObject implementations.
+There is expectation that after RPC callbacks are introduced in neutron, the new
+mechanism will handle notifications from server to agents for other resources
+(e.g., security groups). This will need to wait until those resources get proper 
+NeutronObject implementations.
 
 The flow of updates is as follows:
 
 * if a QoS policy is newly attached to a port that is bound to an agent, the
   ML2 QoS extension driver will detect the change and notify the ML2 plugin,
   which in turn notifies the agent. The agent then calls rpc.get_device_details
-  which returns a port dict containing the qos_policy_id. The agent sends the
+  to obtain a port dict containing the qos_policy_id. The agent forwards this
   port dict to the L2 agent extension manager, which in turn sends it to every 
   enabled extension, including the QoS extension.  The QoS extension sees that 
   there is a new unknown QoS policy for a port, so it uses the ResourcesPullRpcApi 
   to fetch the current state of the policy (with all the rules included) from 
-  the server. The QoS extension applies the rules by calling QoS driver that 
+  the server. The QoS extension then applies these rules by calling QoS driver that 
   corresponds to the agent.
 * if any existing QoS policy is changed (which may include changes to the policy itself
   or to any of its rules), the server pushes the new policy object state through 
@@ -230,7 +230,7 @@ The flow of updates is as follows:
   silently ignores the update.
 
 
-Agent side design
+Agent-side design
 =================
 
 To ease code reusability between agents and to avoid the need to patch an agent
@@ -245,14 +245,14 @@ with them.
   Defines an abstract extension interface.
 
 * neutron.agent.l2.extensions.manager:
-  TContains a manager that allows to register multiple extensions,
-  and passes handle_port events down to all enabled extensions.
+  Contains a manager that handles registration of extensions and passes 
+  handle_port events down to all enabled extensions.
 
 * neutron.agent.l2.extensions.qos
-  Defines QoS L2 agent extension. It receives handle_port and delete_port
-  events and passes them down into QoS agent backend driver (see below). The
+  Defines the QoS L2 agent extension. It receives handle_port and delete_port
+  events and passes them to the QoS agent backend driver (see below). This
   file also defines the QosAgentDriver interface. Note: each backend implements
-  its own driver. The driver handles low level interaction with the underlying
+  its own driver. The driver handles low-level interaction with the underlying
   networking technology, while the QoS extension handles operations that are
   common to all agents.
 
@@ -284,7 +284,7 @@ the port Interface parameters ingress_policing_rate and
 ingress_policing_burst.
 
 This approach is less flexible than linux-htb, Queues and OvS QoS profiles,
-which we may explore in the future, but which will need to be used in
+which we may explore in the future but which will need to be used in
 combination with openflow rules.
 
 The Open vSwitch DSCP marking implementation relies on the following 
@@ -294,7 +294,7 @@ ovs_lib OVSBridge functions:
 * create_dscp_marking_rule
 * delete_dscp_marking_rule
 
-The DSCP markings are in fact configused on the port by means of
+The DSCP markings are in fact configured on the port by means of
 openflow rules.
 
 SR-IOV
@@ -319,13 +319,13 @@ Configuration
 
 To enable the service, the following steps should be followed:
 
-On server side:
+Server-side:
 
 * enable qos service in service_plugins;
 * set the needed notification_drivers in [qos] section (message_queue is the default);
 * for ML2, add 'qos' to extension_drivers in [ml2] section.
 
-On agent side (OVS):
+Agent-side (OVS):
 
 * add 'qos' to extensions in [agent] section.
 
