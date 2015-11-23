@@ -2,12 +2,12 @@
 Quality of Service
 ==================
 
-The Quality of Service (Qos) advanced service is designed as a service plugin. This
-service is decoupled from the rest of Neutron code on multiple levels (see
+The Quality of Service (QoS) advanced service is designed as a service plugin. This
+service is decoupled from the rest of neutron code on multiple levels (see
 below).
 
-QoS extends core resources (ports, networks) without using mixins inherited
-from plugins but through an ml2 extension driver.
+QoS extends core resources (ports and networks) without using mixins inherited
+from plugins but through an ML2 extension driver.
 
 Details about the DB models, API extension, and use cases can be found here: `qos and bw spec <http://specs.openstack.org/openstack/neutron-specs/specs/liberty/qos-api-extension.html>`_.  This spec provides implementation 
 details for QoS generally as well as for the egress bandwidth limiting rule type, the first 
@@ -18,7 +18,7 @@ Service-side design
 ===================
 * neutron.extensions.qos:
   Implements the base extension and API controller definition. Note that a 
-  rule, since it is a subattribute of a policy, is embedded into policy URIs.
+  rule, since it is a sub-attribute of a policy, is embedded into policy URIs.
 
 * neutron.services.qos.qos_plugin:
   Implements the QoS extension as a service plugin, receiving and
@@ -29,27 +29,27 @@ Service-side design
   notification driver.
 
 * neutron.services.qos.notification_drivers.qos_base:
-  Contains the interface class for pluggable notification drivers that are used to
-  update backends about new {create, update, delete} events on any rule or
-  policy change.
+  Defines the interface class for pluggable notification drivers that are used to
+  update backends about create, update, or delete events on any rule or
+  policy.
 
 * neutron.services.qos.notification_drivers.message_queue:
-  MQ-based reference notification driver, which updates agents via messaging
-  bus, using `RPC callbacks <rpc_callbacks.html>`_.
+  Implements the MQ-based reference notification driver, which updates agents 
+  via messaging bus, using `RPC callbacks <rpc_callbacks.html>`_.
 
 * neutron.core_extensions.base:
-  Contains an interface class to implement core resource (port/network)
+  Defines an interface class used to implement core resource (port and network)
   extensions. Core resource extensions are then easily integrated into
   interested plugins. We may need to  have a core resource extension manager
   that would utilize those extensions, to avoid plugin modifications for every
   new core resource extension.
 
 * neutron.core_extensions.qos:
-  Contains QoS core resource extension that conforms to the interface described
+  Contains the QoS core resource extension that conforms to the interface described
   above.
 
 * neutron.plugins.ml2.extensions.qos:
-  Contains ml2 extension driver that handles core resource updates by reusing
+  Contains the ML2 extension driver that handles core resource updates by reusing
   the core_extensions.qos module mentioned above. In the future, we would like
   to see a plugin-agnostic core resource extension manager that could be
   integrated into other plugins with ease.
@@ -58,7 +58,7 @@ Service-side design
 Supported QoS rule types
 ------------------------
 
-Any plugin or Ml2 mechanism driver can claim support for one or more QoS rule 
+Any plugin or ML2 mechanism driver can claim support for one or more QoS rule 
 types by providing a plugin/driver class property, called 
 'supported_qos_rule_types', that returns a list of strings each of which 
 corresponds to a QoS rule type. See neutron.services.qos.qos-consts.VALID_RULE_TYPES 
@@ -90,17 +90,17 @@ neutron resource.
 By default, a QoS policy that is assigned to a network will apply only to that 
 network's internal ports (for dhcp, load balancing, etc.).  In the future, we
 may wish to override this restriction (in order, for example, to limit ingress 
-traffic from routers on an external network.  (For details, see 
+traffic from routers on an external network).  (For details, see 
 neutron.objects.qos.rule.QosRule).
 
 The following database objects are defined in schema:
 
 * QosPolicy: directly maps to the conceptual policy resource.
-* QosNetworkPolicyBinding, QosPortPolicyBinding: defines an attachment between a
-  Neutron resource and a QoS policy.
+* QosNetworkPolicyBinding, QosPortPolicyBinding: define an attachment between a
+  neutron resource and a QoS policy.
 * QosBandwidthLimitRule: defines the ingress bandwidth limit rule type, characterized
   by a max kbps and a max burst kbps.
-* QosDscpMarkingRule: defines the the DSCP rule type, characterized by an even integer
+* QosDscpMarkingRule: defines the the DSCP rule type, characterized by an integer
   between 0 and 63 (examples: 0, 8, 10, 12, 14, or 16).
 
 All database models are defined in:
@@ -113,9 +113,9 @@ QoS versioned objects
 
 There is a long history of passing database dictionaries directly into neutron's
 business logic. Since this approach violates encapsulation principles, with QoS 
-we've introduced an objects middleware that isolates the database logic from the 
-rest of the neutron code that works with QoS resources. To do this, we've adopted 
-oslo.versionedobjects library and introduced a new NeutronObject class as a 
+we introduced an objects middleware to isolate database logic from the 
+rest of the neutron code that works with QoS resources. To do this, we adopted 
+the oslo.versionedobjects library and introduced the NeutronObject class as a 
 base for all other objects that will belong to this middleware. There is an 
 expectation that neutron will eventually use middleware objects for all resources 
 it handles, though that project is out of scope for the QoS effort.
@@ -126,7 +126,7 @@ Every NeutronObject supports the following operations:
   argument.
 * get_objects: returns all objects of the type, potentially with a filter
   applied.
-* create/update/delete: performs usual persistence operations.
+* create/update/delete: performs the usual persistence operations.
 
 The NeutronObject class is defined in:
 
@@ -147,7 +147,7 @@ Those are defined in:
 For the QosPolicy neutron object, the following public methods were implemented:
 
 * get_network_policy/get_port_policy: returns a policy object that is attached
-  to the corresponding Neutron resource.
+  to the corresponding neutron resource.
 * attach_network/attach_port: attach a policy to the corresponding neutron
   resource.
 * detach_network/detach_port: detach a policy from the corresponding neutron
@@ -204,31 +204,30 @@ use the RPC interface, so we have no way to get different versions in a
 cluster. That said, the versioning strategy for QoS is thought through and
 described in `the separate page <rpc_callbacks.html>`_.
 
-There is expectation that after RPC callbacks are introduced in Neutron, we
+There is expectation that after RPC callbacks are introduced in neutron, we
 will be able to migrate propagation from server to agents for other resources
-(f.e. security groups) to the new mechanism. This will need to wait until those
+(e.g., security groups) to the new mechanism. This will need to wait until those
 resources get proper NeutronObject implementations.
 
 The flow of updates is as follows:
 
-* if a port that is bound to the agent is attached to a QoS policy, then ML2
-  plugin detects the change by relying on ML2 QoS extension driver, and
-  notifies the agent about a port change. The agent proceeds with the
-  notification by calling to get_device_details() and getting the new port dict
-  that contains a new qos_policy_id. Each device details dict is passed into l2
-  agent extension manager that passes it down into every enabled extension,
-  including QoS. QoS extension sees that there is a new unknown QoS policy for
-  a port, so it uses ResourcesPullRpcApi to fetch the current state of the
-  policy (with all the rules included) from the server. After that, the QoS
-  extension applies the rules by calling into QoS driver that corresponds to
-  the agent.
-* on existing QoS policy update (it includes any policy or its rules change),
-  server pushes the new policy object state through ResourcesPushRpcApi
-  interface. The interface fans out the serialized (dehydrated) object to any
-  agent that is listening for QoS policy updates. If an agent have seen the
-  policy before (it is attached to one of the ports it maintains), then it goes
-  with applying the updates to the port. Otherwise, the agent silently ignores
-  the update.
+* if a QoS policy is newly attached to a port that is bound to an agent, the
+  ML2 QoS extension driver will detect the change and notify the ML2 plugin,
+  which in turn notifies the agent. The agent then calls rpc.get_device_details
+  which returns a port dict containing the qos_policy_id. The agent sends the
+  port dict to the L2 agent extension manager, which in turn sends it to every 
+  enabled extension, including the QoS extension.  The QoS extension sees that 
+  there is a new unknown QoS policy for a port, so it uses the ResourcesPullRpcApi 
+  to fetch the current state of the policy (with all the rules included) from 
+  the server. The QoS extension applies the rules by calling QoS driver that 
+  corresponds to the agent.
+* if any existing QoS policy is changed (which may include changes to the policy itself
+  or to any of its rules), the server pushes the new policy object state through 
+  the ResourcesPushRpcApi interface. The interface fans out the serialized 
+  (dehydrated) object to any agent that is listening for QoS policy updates. If 
+  an agent has seen the policy before (because it is attached to one of the ports 
+  it maintains), the agent will apply the changes to the port. Otherwise, the agent 
+  silently ignores the update.
 
 
 Agent side design
@@ -237,20 +236,20 @@ Agent side design
 To ease code reusability between agents and to avoid the need to patch an agent
 for each new core resource extension, pluggable L2 agent extensions were
 introduced. They can be especially interesting to third parties that don't want
-to maintain their code in Neutron tree.
+to maintain their code in the neutron tree.
 
 Extensions are meant to receive handle_port events, and do whatever they need
 with them.
 
 * neutron.agent.l2.agent_extension:
-  This module defines an abstract extension interface.
+  Defines an abstract extension interface.
 
 * neutron.agent.l2.extensions.manager:
-  This module contains a manager that allows to register multiple extensions,
+  TContains a manager that allows to register multiple extensions,
   and passes handle_port events down to all enabled extensions.
 
 * neutron.agent.l2.extensions.qos
-  defines QoS L2 agent extension. It receives handle_port and delete_port
+  Defines QoS L2 agent extension. It receives handle_port and delete_port
   events and passes them down into QoS agent backend driver (see below). The
   file also defines the QosAgentDriver interface. Note: each backend implements
   its own driver. The driver handles low level interaction with the underlying
