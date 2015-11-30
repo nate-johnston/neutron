@@ -541,17 +541,15 @@ class OVSBridge(BaseOVS):
         self._set_egress_bw_limit_for_port(
             port_name, 0, 0)
 
-    def _set_dscp_marking_rule(self, qos_policy_id, dscp_tag):
+    def create_dscp_marking_rule_for_port(self, port, dscp_mark):
+        self.add_flow(priority=5, in_port=port,
+            actions="mod_nw_tos=%s,normal" % dscp_mark)
+
+    def get_dscp_marking_rule_for_port(self, port):
         pass
 
-    def create_dscp_marking_rule(self, qos_policy_id, dscp_tag):
-        pass
-
-    def get_dscp_marking_rule(self, qos_policy_id):
-        pass
-
-    def delete_dscp_marking_rule(self, qos_policy_id):
-        pass
+    def delete_dscp_marking_rule_for_port(self, port):
+        self.delete_flows(priority=5, in_port=port)
 
     def __enter__(self):
         self.create()

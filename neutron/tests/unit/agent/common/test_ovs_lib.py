@@ -916,3 +916,22 @@ class TestDeferredOVSBridge(base.BaseTestCase):
                 deferred_br.add_flow(actions='drop')
                 deferred_br.mod_flow(actions='drop')
             f.assert_has_calls(expected_calls)
+
+    def test_set_dscp_rule(self):
+      port = 999
+      dscp_mark = 104
+      self.br.set_dscp_rule(port, dscp_mark)
+      expected = [
+          call.add_flow(priority=5, in_port=port,
+            actions='mod_nw_tos:%s,normal' % dscp_mark),
+          ]
+      self.assertEqual(expected, self.mock.mock_calls)
+
+    def test_remove_dscp_rule(self):
+      port = 999
+      self.br.remove_dscp_rule(port)
+      expected = [
+          call.call.delete_flows(priority=5, in_port=port)
+          ]
+      self.assertEqual(expected, self.mock.mock_calls)
+

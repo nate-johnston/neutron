@@ -62,15 +62,6 @@ class OVSIntegrationBridge(ovs_bridge.OVSAgentBridge):
             dl_vlan = segmentation_id
         self.delete_flows(in_port=port, dl_vlan=dl_vlan)
 
-    def set_dscp_rule(self, port, dscp_mark):
-        self.add_flow(priority=5,
-                      in_port=port,
-                      actions="mod_nw_tos=%s,normal" % dscp_mark)
-
-    def remove_dscp_rule(self, port):
-        self.delete_flows(priority=5,
-                          in_port=port)
-
     @staticmethod
     def _dvr_to_src_mac_table_id(network_type):
         if network_type == p_const.TYPE_VLAN:
