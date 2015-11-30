@@ -788,6 +788,24 @@ class OVS_Lib_Test(base.BaseTestCase):
             'tap99id', data, extra_calls_and_values=extra_calls_and_values)
         self._assert_vif_port(vif_port, ofport=1337, mac="de:ad:be:ef:13:37")
 
+    def test_set_dscp_rule(self):
+        port = 999
+        dscp_mark = 104
+        self.br.create_dscp_marking_rule_for_port(port, dscp_mark)
+        expected = [
+            self.br.add_flow(priority=5, in_port=port,
+                actions='mod_nw_tos:%s,normal' % dscp_mark),
+        ]
+        self.assertEqual(expected, self.mock.mock_calls)
+
+    def test_remove_dscp_rule(self):
+        port = 999
+        self.br.delete_dscp_marking_rule_for_port(port)
+        expected = [
+            self.br.delete_flows(priority=5, in_port=port)
+        ]
+        self.assertEqual(expected, self.mock.mock_calls)
+
 
 class TestDeferredOVSBridge(base.BaseTestCase):
 
@@ -916,22 +934,3 @@ class TestDeferredOVSBridge(base.BaseTestCase):
                 deferred_br.add_flow(actions='drop')
                 deferred_br.mod_flow(actions='drop')
             f.assert_has_calls(expected_calls)
-
-    def test_set_dscp_rule(self):
-      port = 999
-      dscp_mark = 104
-      self.br.set_dscp_rule(port, dscp_mark)
-      expected = [
-          call.add_flow(priority=5, in_port=port,
-            actions='mod_nw_tos:%s,normal' % dscp_mark),
-          ]
-      self.assertEqual(expected, self.mock.mock_calls)
-
-    def test_remove_dscp_rule(self):
-      port = 999
-      self.br.remove_dscp_rule(port)
-      expected = [
-          call.call.delete_flows(priority=5, in_port=port)
-          ]
-      self.assertEqual(expected, self.mock.mock_calls)
-
